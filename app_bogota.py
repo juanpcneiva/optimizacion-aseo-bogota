@@ -9,8 +9,8 @@ Ejecución en terminal de Anaconda:
 
 import streamlit as st
 import folium
-from streamlit_folium import st_folium
 import pandas as pd
+import streamlit.components.v1 as components
 
 from red_bogota import LOCALIDADES_BOGOTA, construir_grafo_macro_bogota, descargar_sector_localidad
 from teoria_algoritmos import (
@@ -114,7 +114,7 @@ with tab_mapa:
             coords = [(G_scc.nodes[u]["y"], G_scc.nodes[u]["x"]), (G_scc.nodes[v]["y"], G_scc.nodes[v]["x"])]
         folium.PolyLine(coords, color="#ffffff", weight=2, opacity=0.45).add_to(mapa)
 
-    # 2. Dibujar el circuito Euleriano óptimo (Cian brillante para alto contraste en vista satelital)
+    # 2. Dibujar el circuito Euleriano óptimo
     coords_circuito = []
     for paso in secuencia_tramos:
         u = paso["origen"]
@@ -175,20 +175,8 @@ with tab_mapa:
         icon=folium.Icon(color="green", icon="truck", prefix="fa")
     ).add_to(mapa)
 
-    # Botón para exportar tu HTML satelital independiente
+    # 5. Renderizar mapa nativamente en Streamlit (Evita errores de módulos dinámicos en la nube)
     html_string = mapa.get_root().render()
-    st.download_button(
-        label="💾 Descargar este Mapa Satelital como archivo HTML independiente",
-        data=html_string,
-        file_name=f"mapa_satelital_{localidad_sel.lower().replace(' ', '_')}.html",
-        mime="text/html"
-    )
-
-   # 5. Guardar el mapa en HTML y renderizarlo nativamente en Streamlit (Evita errores de la nube)
-    html_string = mapa.get_root().render()
-    
-    # Renderizar directamente en la app sin usar streamlit-folium
-    import streamlit.components.v1 as components
     components.html(html_string, height=620, scrolling=False)
 
     # Botón para descargar el archivo HTML independiente
