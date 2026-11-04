@@ -184,7 +184,20 @@ with tab_mapa:
         mime="text/html"
     )
 
-    st_folium(mapa, width=1300, height=620)
+   # 5. Guardar el mapa en HTML y renderizarlo nativamente en Streamlit (Evita errores de la nube)
+    html_string = mapa.get_root().render()
+    
+    # Renderizar directamente en la app sin usar streamlit-folium
+    import streamlit.components.v1 as components
+    components.html(html_string, height=620, scrolling=False)
+
+    # Botón para descargar el archivo HTML independiente
+    st.download_button(
+        label="💾 Descargar este Mapa Satelital como archivo HTML independiente",
+        data=html_string,
+        file_name=f"mapa_satelital_{localidad_sel.lower().replace(' ', '_')}.html",
+        mime="text/html"
+    )
 
 with tab_teoria:
     st.subheader("Sustentación Matemática Calculada en Tiempo Real sobre el Grafo Actual")
