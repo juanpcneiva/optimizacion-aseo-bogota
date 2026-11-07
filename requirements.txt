@@ -1,7 +1,7 @@
 streamlit
-folium
 osmnx
 networkx
 pandas
+requests
 shapely
 geopandas
