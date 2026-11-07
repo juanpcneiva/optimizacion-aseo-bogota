@@ -1,0 +1,33 @@
+name: Generar Cache Vial de Bogota
+
+on:
+  workflow_dispatch: # Permite ejecutarlo con un botón en GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar script generador de cache
+        run: python generar_cache.py
+
+      - name: Guardar carpeta cache_bogota en el repositorio
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache_bogota/
+          git diff --staged --quiet || git commit -m "Autogenerar cache_bogota para las 19 localidades"
+          git push
