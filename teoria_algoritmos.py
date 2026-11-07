@@ -4,31 +4,6 @@ MÓDULO 1: FUNDAMENTOS DE TEORÍA DE GRAFOS Y ALGORITMOS DE OPTIMIZACIÓN VIAL
 ================================================================================
 Proyecto: Optimización de Recolección de Residuos Sólidos en Bogotá D.C.
 Modelo Matemático: Problema del Cartero Chino Dirigido (DCPP) y Rutas Macro
-
-MARCO TEÓRICO INTEGRADO EN EL CÓDIGO:
---------------------------------------------------------------------------------
-1. DEFINICIÓN FORMAL DEL GRAFO VIAL:
-   Sea G = (V, E, w) un grafo dirigido y ponderado donde:
-   - V: Conjunto de vértices que representan intersecciones viales o centroides zonales.
-   - E: Conjunto de aristas dirigidas (u, v) que representan segmentos de calle
-        con el sentido de circulación vehicular permitido en Bogotá.
-   - w(e): Función de peso w: E -> R+ que asigna la longitud en metros a cada vía.
-
-2. CONDICIÓN DE EULER Y CONECTIVIDAD FUERTE (TEOREMA DE EULER-HIERHOLZER):
-   Un grafo dirigido G posee un circuito euleriano (un ciclo cerrado que recorre
-   cada arista al menos una vez) si y solo si:
-   a) G es fuertemente conexo: Para todo par (u, v) in V, existe un camino
-      dirigido de u a v y de v a u (filtrado mediante el Algoritmo de Tarjan).
-   b) G es simétrico en grados (balanceado):
-      deg+(v) = deg-(v)   para todo v in V
-      donde deg+(v) es el grado de salida y deg-(v) es el grado de entrada.
-
-3. EULERIZACIÓN MEDIANTE FLUJO DE COSTO MÍNIMO (MIN-COST FLOW):
-   Cuando deg+(v) != deg-(v), se define el desbalance o demanda b(v) como:
-      b(v) = deg+(v) - deg-(v)
-   - Si b(v) > 0: El nodo tiene exceso de salidas y requiere recibir aristas (Sumidero).
-   - Si b(v) < 0: El nodo tiene exceso de entradas y requiere expulsar aristas (Fuente).
-   - Si b(v) = 0: El nodo está balanceado (Nodo de transbordo).
 ================================================================================
 """
 
@@ -38,9 +13,8 @@ from collections import defaultdict
 
 def extraer_componente_fuertemente_conexa(G_raw):
     """
-    Aplica el Algoritmo de Tarjan (complejidad O(|V| + |E|)) para encontrar
-    la Componente Fuertemente Conexa (SCC) maximal de la red vial.
-    Garantiza que el camión recolector no quede atrapado en callejones cerrados.
+    Aplica el Algoritmo de Tarjan O(|V| + |E|) para obtener la Componente
+    Fuertemente Conexa (SCC) maximal y evitar callejones sin salida.
     """
     componentes = list(nx.strongly_connected_components(G_raw))
     scc_maximal = max(componentes, key=len)
@@ -51,14 +25,14 @@ def extraer_componente_fuertemente_conexa(G_raw):
 def analizar_desbalance_grados(G):
     """
     Evalúa la condición de simetría deg+(v) = deg-(v) en cada intersección.
-    Retorna el diccionario de demandas b(v) y las estadísticas de nodos.
+    b(v) = deg+(v) - deg-(v)
     """
     in_deg = dict(G.in_degree())
     out_deg = dict(G.out_degree())
-    
+
     demandas = {}
-    nodos_fuente = 0     # b(v) < 0: in > out (expulsan flujo adicional)
-    nodos_sumidero = 0   # b(v) > 0: out > in (reciben flujo adicional)
+    nodos_fuente = 0
+    nodos_sumidero = 0
     nodos_balanceados = 0
 
     for v in G.nodes():
@@ -83,10 +57,8 @@ def analizar_desbalance_grados(G):
 
 def eulerizar_grafo_min_cost_flow(G, demandas):
     """
-    Resuelve el problema de programación lineal de Flujo de Costo Mínimo:
-        min sum_{e in E} w(e) * f(e)
-        sujeto a: sum_{v} f(v, u) - sum_{v} f(u, v) = b(u)
-    Duplica las aristas óptimas para transformar G en un multigrafo euleriano.
+    Resuelve el Flujo de Costo Mínimo (Network Simplex) para duplicar
+    el conjunto óptimo de vías que equilibra todos los grados del grafo.
     """
     red_flujo = nx.DiGraph()
 
@@ -94,13 +66,15 @@ def eulerizar_grafo_min_cost_flow(G, demandas):
         red_flujo.add_node(v, demand=b_v)
 
     for u, v, data in G.edges(data=True):
-        peso_metros = int(round(data.get("length", 1.0)))
-        red_flujo.add_edge(u, v, weight=peso_metros, capacity=999)
+        peso_metros = max(1, int(round(data.get("length", 1.0))))
+        if red_flujo.has_edge(u, v):
+            if peso_metros < red_flujo[u][v]["weight"]:
+                red_flujo[u][v]["weight"] = peso_metros
+        else:
+            red_flujo.add_edge(u, v, weight=peso_metros, capacity=999)
 
-    # Solución mediante Simplex de Redes (Network Simplex)
     flujo_optimo = nx.min_cost_flow(red_flujo)
 
-    # Construcción del Multigrafo Dirigido Euleriano G_euler
     G_euler = nx.MultiDiGraph()
     for n, data in G.nodes(data=True):
         G_euler.add_node(n, **data)
@@ -112,7 +86,8 @@ def eulerizar_grafo_min_cost_flow(G, demandas):
     for u in flujo_optimo:
         for v, unidades_flujo in flujo_optimo[u].items():
             if unidades_flujo > 0:
-                datos_originales = list(G.get_edge_data(u, v).values())[0].copy()
+                aristas_uv = list(G.get_edge_data(u, v).values())
+                datos_originales = min(aristas_uv, key=lambda d: d.get("length", 1.0)).copy()
                 for _ in range(unidades_flujo):
                     G_euler.add_edge(u, v, repetida=True, **datos_originales)
                     aristas_duplicadas += 1
@@ -120,17 +95,33 @@ def eulerizar_grafo_min_cost_flow(G, demandas):
     return G_euler, aristas_duplicadas
 
 
+def _obtener_nombre_via(valor_name):
+    if isinstance(valor_name, list):
+        return str(valor_name[0]) if valor_name else "Vía Local"
+    if isinstance(valor_name, str) and valor_name.strip():
+        return valor_name
+    return "Vía Local"
+
+
+def _extraer_coordenadas_arista(G, u, v, datos_arista):
+    """
+    Devuelve la lista de coordenadas [[lat, lon], ...] respetando la curvatura
+    real de la calle en OpenStreetMap.
+    """
+    if "geometry" in datos_arista:
+        coords = [[round(pt[1], 6), round(pt[0], 6)] for pt in datos_arista["geometry"].coords]
+        return coords
+    return [
+        [round(G.nodes[u]["y"], 6), round(G.nodes[u]["x"], 6)],
+        [round(G.nodes[v]["y"], 6), round(G.nodes[v]["x"], 6)]
+    ]
+
+
 def algoritmo_hierholzer_propio(G_euler, nodo_inicio=None):
     """
-    IMPLEMENTACIÓN PROPIA DEL ALGORITMO DE HIERHOLZER (1873)
-    ----------------------------------------------------------------------------
-    Complejidad Temporal: O(|E_euler|)
-    Extrae el circuito euleriano paso a paso usando dos estructuras:
-    - Pila de exploración (stack): Mantiene el camino activo de búsqueda DFS.
-    - Lista de circuito (circuito): Almacena los vértices cuando ya no tienen
-      aristas salientes disponibles, invirtiendo el resultado al finalizar.
+    IMPLEMENTACIÓN PROPIA DEL ALGORITMO DE HIERHOLZER O(|E_euler|)
+    Extrae el circuito euleriano completo y adjunta la geometría vial de cada paso.
     """
-    # Crear lista de adyacencia mutable con las aristas disponibles
     adyacencia = defaultdict(list)
     for u, v, key, data in G_euler.edges(keys=True, data=True):
         adyacencia[u].append((v, key, data))
@@ -144,21 +135,19 @@ def algoritmo_hierholzer_propio(G_euler, nodo_inicio=None):
     while stack:
         u = stack[-1]
         if adyacencia[u]:
-            # Tomar la siguiente arista dirigida no visitada que sale de 'u'
             v, key, data = adyacencia[u].pop()
             stack.append(v)
         else:
-            # Si 'u' ya no tiene aristas de salida sin visitar, se añade al circuito
             camino_nodos.append(stack.pop())
 
-    # Invertir para obtener el sentido cronológico correcto del camión
     camino_nodos.reverse()
 
-    # Reconstruir la secuencia de tramos (u, v, datos)
-    # Usamos una copia de las aristas para calcular métricas exactas
+    # Priorizar primero la pasada de recolección (repetida=False) y luego la repetida
     aristas_temp = defaultdict(list)
     for u, v, key, data in G_euler.edges(keys=True, data=True):
         aristas_temp[(u, v)].append(data)
+    for par in aristas_temp:
+        aristas_temp[par].sort(key=lambda d: d.get("repetida", False))
 
     secuencia_tramos = []
     distancia_total = 0.0
@@ -168,8 +157,10 @@ def algoritmo_hierholzer_propio(G_euler, nodo_inicio=None):
         u = camino_nodos[i]
         v = camino_nodos[i + 1]
         datos_arista = aristas_temp[(u, v)].pop(0)
-        longitud = datos_arista.get("length", 0.0)
-        es_repetida = datos_arista.get("repetida", False)
+        longitud = float(datos_arista.get("length", 0.0))
+        es_repetida = bool(datos_arista.get("repetida", False))
+        nombre_calle = _obtener_nombre_via(datos_arista.get("name"))
+        coords_tramo = _extraer_coordenadas_arista(G_euler, u, v, datos_arista)
 
         distancia_total += longitud
         if es_repetida:
@@ -179,9 +170,10 @@ def algoritmo_hierholzer_propio(G_euler, nodo_inicio=None):
             "paso": i + 1,
             "origen": u,
             "destino": v,
-            "calle": datos_arista.get("name", "Vía Local"),
+            "calle": nombre_calle,
             "longitud_m": round(longitud, 1),
-            "repetida": es_repetida
+            "repetida": es_repetida,
+            "coords": coords_tramo
         })
 
     return secuencia_tramos, distancia_total, distancia_repetida
@@ -189,8 +181,8 @@ def algoritmo_hierholzer_propio(G_euler, nodo_inicio=None):
 
 def dijkstra_macro_dona_juana(G_macro, localidad_origen):
     """
-    Calcula la ruta más corta desde el centro de acopio de una localidad de Bogotá
-    hasta el Relleno Sanitario Doña Juana usando el Algoritmo de Dijkstra O(|E| + |V| log |V|).
+    Calcula la secuencia óptima de corredores entre la localidad de origen
+    y el Relleno Sanitario Doña Juana mediante el Algoritmo de Dijkstra.
     """
     destino = "Relleno Doña Juana"
     ruta_nodos = nx.dijkstra_path(G_macro, source=localidad_origen, target=destino, weight="distancia_km")
