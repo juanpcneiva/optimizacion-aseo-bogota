@@ -5,13 +5,14 @@ MÓDULO 2: MODELADO MULTIESCALA DE BOGOTÁ D.C. Y RUTEO VIAL REAL A DOÑA JUANA
 """
 
 import os
+import json
 import time
 import requests
 import osmnx as ox
 import networkx as nx
 
-# Configuración de caché local persistente
-CARPETA_CACHE = "./cache_bogota"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CARPETA_CACHE = os.path.join(BASE_DIR, "cache_bogota")
 os.makedirs(CARPETA_CACHE, exist_ok=True)
 
 ox.settings.use_cache = True
@@ -19,7 +20,6 @@ ox.settings.cache_folder = CARPETA_CACHE
 ox.settings.timeout = 180
 ox.settings.overpass_rate_limit = False
 
-# Pool ampliado de servidores Overpass de alta disponibilidad
 SERVIDORES_OVERPASS = [
     "https://overpass.private.coffee/api",
     "https://lz4.overpass-api.de/api",
@@ -86,6 +86,14 @@ CORREDORES_BOGOTA = [
 ]
 
 
+def _limpiar_nombre(texto):
+    reemplazos = {" ": "_", "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n"}
+    res = texto.lower()
+    for k, v in reemplazos.items():
+        res = res.replace(k, v)
+    return res
+
+
 def construir_grafo_macro_bogota():
     G_macro = nx.Graph()
     for nombre, info in LOCALIDADES_BOGOTA.items():
@@ -97,12 +105,8 @@ def construir_grafo_macro_bogota():
     return G_macro
 
 
-def descargar_sector_localidad(nombre_localidad, radio_metros=600):
-    """
-    1. Verifica si el grafo ya existe guardado en disco (.graphml) para carga instantánea.
-    2. Si no existe, rota entre 5 servidores Overpass con espera adaptativa.
-    """
-    nombre_limpio = nombre_localidad.lower().replace(" ", "_")
+def descargar_sector_localidad(nombre_localidad, radio_metros=550):
+    nombre_limpio = _limpiar_nombre(nombre_localidad)
     archivo_graphml = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_{radio_metros}m.graphml")
 
     if os.path.exists(archivo_graphml):
@@ -115,7 +119,7 @@ def descargar_sector_localidad(nombre_localidad, radio_metros=600):
     punto_central = (info["lat"], info["lon"])
 
     ultimo_error = None
-    for intento in range(2):
+    for _ in range(2):
         for endpoint in SERVIDORES_OVERPASS:
             try:
                 ox.settings.overpass_endpoint = endpoint
@@ -132,18 +136,25 @@ def descargar_sector_localidad(nombre_localidad, radio_metros=600):
                 return G_raw
             except Exception as e:
                 ultimo_error = e
-                time.sleep(0.8)
+                time.sleep(1.0)
                 continue
 
-    raise RuntimeError(f"Servidores Overpass ocupados temporalmente. Intenta con un radio menor o en unos segundos. Detalle: {ultimo_error}")
+    raise RuntimeError(f"Servidores Overpass ocupados temporalmente. Detalle: {ultimo_error}")
 
 
 def obtener_ruta_vial_real_dona_juana(ruta_macro_nodos, lat_inicio_camion, lon_inicio_camion):
-    """
-    Toma los nodos de la ruta óptima de Dijkstra (ej. Fontibón -> Tunjuelito -> Doña Juana)
-    y consulta el motor vial de OpenStreetMap (OSRM) para obtener el trazado exacto
-    calle por calle (con todas las curvas y avenidas reales de Bogotá) hasta Doña Juana.
-    """
+    localidad_origen = ruta_macro_nodos[0]
+    nombre_limpio = _limpiar_nombre(localidad_origen)
+    archivo_ruta_json = os.path.join(CARPETA_CACHE, f"ruta_dj_{nombre_limpio}.json")
+
+    if os.path.exists(archivo_ruta_json):
+        try:
+            with open(archivo_ruta_json, "r", encoding="utf-8") as f:
+                datos_cache = json.load(f)
+            return datos_cache["geometria"], datos_cache["distancia_km"], datos_cache["avenidas"]
+        except Exception:
+            pass
+
     waypoints = [(lat_inicio_camion, lon_inicio_camion)]
     for nombre_loc in ruta_macro_nodos[1:]:
         info = LOCALIDADES_BOGOTA[nombre_loc]
@@ -158,16 +169,14 @@ def obtener_ruta_vial_real_dona_juana(ruta_macro_nodos, lat_inicio_camion, lon_i
     headers = {"User-Agent": "BogotaWasteGraphOptimizer/2.0"}
     for url in urls_osrm:
         try:
-            resp = requests.get(url, headers=headers, timeout=10)
+            resp = requests.get(url, headers=headers, timeout=12)
             if resp.status_code == 200:
-                 data = resp.json()
+                data = resp.json()
                 if data.get("routes"):
                     ruta = data["routes"][0]
-                    # Convertir [lon, lat] de GeoJSON a [lat, lon] para Leaflet
                     geometria_vial = [[round(pt[1], 6), round(pt[0], 6)] for pt in ruta["geometry"]["coordinates"]]
                     distancia_real_km = round(ruta["distance"] / 1000.0, 2)
 
-                    # Extraer nombres de las avenidas principales tomadas
                     avenidas = []
                     for leg in ruta.get("legs", []):
                         for step in leg.get("steps", []):
@@ -175,10 +184,20 @@ def obtener_ruta_vial_real_dona_juana(ruta_macro_nodos, lat_inicio_camion, lon_i
                             if nombre_via and nombre_via not in avenidas:
                                 avenidas.append(nombre_via)
 
+                    resultado = {
+                        "geometria": geometria_vial,
+                        "distancia_km": distancia_real_km,
+                        "avenidas": avenidas[:8]
+                    }
+                    try:
+                        with open(archivo_ruta_json, "w", encoding="utf-8") as f:
+                            json.dump(resultado, f)
+                    except Exception:
+                        pass
+
                     return geometria_vial, distancia_real_km, avenidas[:8]
         except Exception:
             continue
 
-    # Respaldo en caso de no haber conexión al servidor de ruteo
     geometria_fallback = [[lat, lon] for lat, lon in waypoints]
     return geometria_fallback, 0.0, []
