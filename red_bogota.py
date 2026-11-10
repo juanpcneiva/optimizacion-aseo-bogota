@@ -11,15 +11,18 @@ import requests
 import osmnx as ox
 import networkx as nx
 
+# Directorio base para persistencia de datos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CARPETA_CACHE = os.path.join(BASE_DIR, "cache_bogota")
 os.makedirs(CARPETA_CACHE, exist_ok=True)
 
+# Parámetros del motor OSMnx
 ox.settings.use_cache = True
 ox.settings.cache_folder = CARPETA_CACHE
 ox.settings.timeout = 180
 ox.settings.overpass_rate_limit = False
 
+# Servidores espejo de Overpass de alta disponibilidad
 SERVIDORES_OVERPASS = [
     "https://overpass.kumi.systems/api",
     "https://overpass.private.coffee/api",
@@ -86,6 +89,7 @@ CORREDORES_BOGOTA = [
 
 
 def _limpiar_nombre(texto):
+    """Limpia caracteres especiales y tildes para nombres de archivo uniformes."""
     reemplazos = {" ": "_", "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n"}
     res = texto.lower()
     for k, v in reemplazos.items():
@@ -94,6 +98,7 @@ def _limpiar_nombre(texto):
 
 
 def construir_grafo_macro_bogota():
+    """Genera el grafo macro distrital para ruteo entre localidades."""
     G_macro = nx.Graph()
     for nombre, info in LOCALIDADES_BOGOTA.items():
         G_macro.add_node(nombre, lat=info["lat"], lon=info["lon"], ase=info["ase"])
@@ -105,6 +110,10 @@ def construir_grafo_macro_bogota():
 
 
 def descargar_sector_localidad(nombre_localidad, radio_metros=1000):
+    """
+    Obtiene la malla vial de la localidad consultando primero el almacenamiento
+    en cache_bogota/ antes de realizar peticiones de red.
+    """
     nombre_limpio = _limpiar_nombre(nombre_localidad)
     archivo_exacto = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_{radio_metros}m.graphml")
     archivo_fallback = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_1000m.graphml")
@@ -147,12 +156,16 @@ def descargar_sector_localidad(nombre_localidad, radio_metros=1000):
                 continue
 
     raise RuntimeError(
-        f"Servidores Overpass saturados temporalmente. "
-        f"Verifica que la carpeta cache_bogota/ contenga los archivos de 1000m. Detalle: {ultimo_error}"
+        f"Servidores Overpass no disponibles temporalmente. "
+        f"Verifica la existencia del archivo en cache_bogota/. Detalle: {ultimo_error}"
     )
 
 
 def obtener_ruta_vial_real_dona_juana(ruta_macro_nodos, lat_inicio_camion, lon_inicio_camion):
+    """
+    Calcula el trazado vial calle por calle hacia el Relleno Sanitario Doña Juana
+    y almacena las coordenadas en formato JSON en la carpeta de caché.
+    """
     localidad_origen = ruta_macro_nodos[0]
     nombre_limpio = _limpiar_nombre(localidad_origen)
     archivo_ruta_json = os.path.join(CARPETA_CACHE, f"ruta_dj_{nombre_limpio}.json")
@@ -188,4 +201,27 @@ def obtener_ruta_vial_real_dona_juana(ruta_macro_nodos, lat_inicio_camion, lon_i
                     distancia_real_km = round(ruta["distance"] / 1000.0, 2)
 
                     avenidas = []
-                    for leg in ruta
+                    for leg in ruta.get("legs", []):
+                        for step in leg.get("steps", []):
+                            nombre_via = step.get("name", "").strip()
+                            if nombre_via and nombre_via not in avenidas:
+                                avenidas.append(nombre_via)
+
+                    resultado = {
+                        "geometria": geometria_vial,
+                        "distancia_km": distancia_real_km,
+                        "avenidas": avenidas[:8]
+                    }
+
+                    try:
+                        with open(archivo_ruta_json, "w", encoding="utf-8") as f:
+                            json.dump(resultado, f)
+                    except Exception:
+                        pass
+
+                    return geometria_vial, distancia_real_km, avenidas[:8]
+        except Exception:
+            continue
+
+    geometria_fallback = [[lat, lon] for lat, lon in waypoints]
+    return geometria_fallback, 0.0, []
