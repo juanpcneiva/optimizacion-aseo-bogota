@@ -21,36 +21,14 @@ jobs:
       - name: Instalar dependencias
         run: pip install osmnx networkx requests shapely geopandas pandas
 
-      - name: Descargar las 19 localidades y rutas a Dona Juana
-        run: |
-          python -c '
-          import os, time
-          from red_bogota import LOCALIDADES_BOGOTA, CARPETA_CACHE, construir_grafo_macro_bogota, descargar_sector_localidad, obtener_ruta_vial_real_dona_juana
-          from teoria_algoritmos import dijkstra_macro_dona_juana
-
-          G_macro = construir_grafo_macro_bogota()
-          locs = [k for k in LOCALIDADES_BOGOTA.keys() if k != "Relleno Doña Juana"]
-
-          for i, loc in enumerate(locs, 1):
-              print(f"[{i}/{len(locs)}] Procesando {loc}...")
-              try:
-                  descargar_sector_localidad(loc, radio_metros=1000)
-                  ruta_macro, _ = dijkstra_macro_dona_juana(G_macro, loc)
-                  info = LOCALIDADES_BOGOTA[loc]
-                  obtener_ruta_vial_real_dona_juana(ruta_macro, info["lat"], info["lon"])
-                  time.sleep(1.5)
-              except Exception as e:
-                  print(f"Advertencia en {loc}: {e}")
-
-          for f in os.listdir(CARPETA_CACHE):
-              if f.endswith(".json") and not f.startswith("ruta_dj_"):
-                  os.remove(os.path.join(CARPETA_CACHE, f))
-          '
+      - name: Ejecutar generador de cache
+        run: python generar_cache.py
 
       - name: Guardar carpeta cache_bogota en el repositorio
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cache_bogota/
-          git diff --staged --quiet || git commit -m "Autogenerar cache_bogota para las 19 localidades"
-          git push
+          git diff --staged --quiet || git commit -m "Autogenerar cache_bogota 1000m"
+          git pull --rebase origin main
+          git push origin main
