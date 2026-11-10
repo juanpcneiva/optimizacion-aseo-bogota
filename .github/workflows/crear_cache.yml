@@ -34,7 +34,7 @@ jobs:
           for i, loc in enumerate(locs, 1):
               print(f"[{i}/{len(locs)}] Procesando {loc}...")
               try:
-                  descargar_sector_localidad(loc, radio_metros=550)
+                  descargar_sector_localidad(loc, radio_metros=1000)
                   ruta_macro, _ = dijkstra_macro_dona_juana(G_macro, loc)
                   info = LOCALIDADES_BOGOTA[loc]
                   obtener_ruta_vial_real_dona_juana(ruta_macro, info["lat"], info["lon"])
