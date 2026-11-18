@@ -1,28 +1,22 @@
-"""
-================================================================================
-MÓDULO 2: MODELADO MULTIESCALA DE BOGOTÁ D.C. Y RUTEO VIAL REAL A DOÑA JUANA
-================================================================================
-"""
-
 import os
+import math
 import json
 import time
 import requests
 import osmnx as ox
 import networkx as nx
 
-# Directorio base para persistencia de datos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CARPETA_CACHE = os.path.join(BASE_DIR, "cache_bogota")
 os.makedirs(CARPETA_CACHE, exist_ok=True)
 
-# Parámetros del motor OSMnx
 ox.settings.use_cache = True
 ox.settings.cache_folder = CARPETA_CACHE
 ox.settings.timeout = 180
 ox.settings.overpass_rate_limit = False
 
-# Servidores espejo de Overpass de alta disponibilidad
+RADIOS_DISPONIBLES = list(range(350, 1001, 50))
+
 SERVIDORES_OVERPASS = [
     "https://overpass.kumi.systems/api",
     "https://overpass.private.coffee/api",
@@ -89,7 +83,6 @@ CORREDORES_BOGOTA = [
 
 
 def _limpiar_nombre(texto):
-    """Limpia caracteres especiales y tildes para nombres de archivo uniformes."""
     reemplazos = {" ": "_", "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n"}
     res = texto.lower()
     for k, v in reemplazos.items():
@@ -97,8 +90,32 @@ def _limpiar_nombre(texto):
     return res
 
 
+def _recortar_grafo_por_radio(G_base, lat_centro, lon_centro, radio_metros):
+    if int(radio_metros) >= 1000:
+        return G_base.copy()
+
+    delta_lat = float(radio_metros) / 111320.0
+    delta_lon = float(radio_metros) / (111320.0 * math.cos(math.radians(lat_centro)))
+
+    lat_min, lat_max = lat_centro - delta_lat, lat_centro + delta_lat
+    lon_min, lon_max = lon_centro - delta_lon, lon_centro + delta_lon
+
+    nodos_en_radio = [
+        n for n, d in G_base.nodes(data=True)
+        if lat_min <= float(d.get("y", 0.0)) <= lat_max
+        and lon_min <= float(d.get("x", 0.0)) <= lon_max
+    ]
+
+    if len(nodos_en_radio) < 5:
+        return G_base.copy()
+
+    G_sub = G_base.subgraph(nodos_en_radio).copy()
+    aislados = list(nx.isolates(G_sub))
+    G_sub.remove_nodes_from(aislados)
+    return G_sub
+
+
 def construir_grafo_macro_bogota():
-    """Genera el grafo macro distrital para ruteo entre localidades."""
     G_macro = nx.Graph()
     for nombre, info in LOCALIDADES_BOGOTA.items():
         G_macro.add_node(nombre, lat=info["lat"], lon=info["lon"], ase=info["ase"])
@@ -110,13 +127,13 @@ def construir_grafo_macro_bogota():
 
 
 def descargar_sector_localidad(nombre_localidad, radio_metros=1000):
-    """
-    Obtiene la malla vial de la localidad consultando primero el almacenamiento
-    en cache_bogota/ antes de realizar peticiones de red.
-    """
+    radio_metros = int(radio_metros)
     nombre_limpio = _limpiar_nombre(nombre_localidad)
+    info = LOCALIDADES_BOGOTA[nombre_localidad]
+    lat_c, lon_c = info["lat"], info["lon"]
+
     archivo_exacto = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_{radio_metros}m.graphml")
-    archivo_fallback = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_1000m.graphml")
+    archivo_base_1000 = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_1000m.graphml")
 
     if os.path.exists(archivo_exacto):
         try:
@@ -124,48 +141,54 @@ def descargar_sector_localidad(nombre_localidad, radio_metros=1000):
         except Exception:
             pass
 
-    if os.path.exists(archivo_fallback):
+    if os.path.exists(archivo_base_1000):
         try:
-            return ox.load_graphml(archivo_fallback)
+            G_1000 = ox.load_graphml(archivo_base_1000)
+            G_recortado = _recortar_grafo_por_radio(G_1000, lat_c, lon_c, radio_metros)
+            try:
+                ox.save_graphml(G_recortado, archivo_exacto)
+            except Exception:
+                pass
+            return G_recortado
         except Exception:
             pass
 
-    info = LOCALIDADES_BOGOTA[nombre_localidad]
-    punto_central = (info["lat"], info["lon"])
-
+    punto_central = (lat_c, lon_c)
     ultimo_error = None
     for _ in range(2):
         for endpoint in SERVIDORES_OVERPASS:
             try:
                 ox.settings.overpass_endpoint = endpoint
                 ox.settings.timeout = 75
-                G_raw = ox.graph_from_point(
+                G_1000 = ox.graph_from_point(
                     punto_central,
-                    dist=radio_metros,
+                    dist=1000,
                     network_type="drive",
                     simplify=True
                 )
                 try:
-                    ox.save_graphml(G_raw, archivo_exacto)
+                    ox.save_graphml(G_1000, archivo_base_1000)
                 except Exception:
                     pass
-                return G_raw
+
+                G_recortado = _recortar_grafo_por_radio(G_1000, lat_c, lon_c, radio_metros)
+                if radio_metros != 1000:
+                    try:
+                        ox.save_graphml(G_recortado, archivo_exacto)
+                    except Exception:
+                        pass
+                return G_recortado
             except Exception as e:
                 ultimo_error = e
                 time.sleep(0.8)
                 continue
 
     raise RuntimeError(
-        f"Servidores Overpass no disponibles temporalmente. "
-        f"Verifica la existencia del archivo en cache_bogota/. Detalle: {ultimo_error}"
+        f"Servidores Overpass no disponibles temporalmente. Detalle: {ultimo_error}"
     )
 
 
 def obtener_ruta_vial_real_dona_juana(ruta_macro_nodos, lat_inicio_camion, lon_inicio_camion):
-    """
-    Calcula el trazado vial calle por calle hacia el Relleno Sanitario Doña Juana
-    y almacena las coordenadas en formato JSON en la carpeta de caché.
-    """
     localidad_origen = ruta_macro_nodos[0]
     nombre_limpio = _limpiar_nombre(localidad_origen)
     archivo_ruta_json = os.path.join(CARPETA_CACHE, f"ruta_dj_{nombre_limpio}.json")
