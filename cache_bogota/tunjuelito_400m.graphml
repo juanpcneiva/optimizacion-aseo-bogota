@@ -1,0 +1,172 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="d16" for="edge" attr.name="geometry" attr.type="string" />
+  <key id="d15" for="edge" attr.name="length" attr.type="string" />
+  <key id="d14" for="edge" attr.name="reversed" attr.type="string" />
+  <key id="d13" for="edge" attr.name="oneway" attr.type="string" />
+  <key id="d12" for="edge" attr.name="name" attr.type="string" />
+  <key id="d11" for="edge" attr.name="maxspeed" attr.type="string" />
+  <key id="d10" for="edge" attr.name="lanes" attr.type="string" />
+  <key id="d9" for="edge" attr.name="highway" attr.type="string" />
+  <key id="d8" for="edge" attr.name="osmid" attr.type="string" />
+  <key id="d7" for="node" attr.name="highway" attr.type="string" />
+  <key id="d6" for="node" attr.name="street_count" attr.type="string" />
+  <key id="d5" for="node" attr.name="x" attr.type="string" />
+  <key id="d4" for="node" attr.name="y" attr.type="string" />
+  <key id="d3" for="graph" attr.name="simplified" attr.type="string" />
+  <key id="d2" for="graph" attr.name="crs" attr.type="string" />
+  <key id="d1" for="graph" attr.name="created_with" attr.type="string" />
+  <key id="d0" for="graph" attr.name="created_date" attr.type="string" />
+  <graph edgedefault="directed">
+    <node id="318004322">
+      <data key="d4">4.5698804</data>
+      <data key="d5">-74.1295648</data>
+      <data key="d6">4</data>
+    </node>
+    <node id="6580176099">
+      <data key="d4">4.5702738</data>
+      <data key="d5">-74.1299482</data>
+      <data key="d6">3</data>
+    </node>
+    <node id="6572803239">
+      <data key="d4">4.5761836</data>
+      <data key="d5">-74.1322176</data>
+      <data key="d7">traffic_signals</data>
+      <data key="d6">4</data>
+    </node>
+    <node id="6572803241">
+      <data key="d4">4.5760815</data>
+      <data key="d5">-74.1321754</data>
+      <data key="d7">traffic_signals</data>
+      <data key="d6">3</data>
+    </node>
+    <node id="317091755">
+      <data key="d4">4.5694166</data>
+      <data key="d5">-74.1320907</data>
+      <data key="d6">3</data>
+    </node>
+    <node id="5433829323">
+      <data key="d4">4.5700088</data>
+      <data key="d5">-74.1296801</data>
+      <data key="d6">3</data>
+    </node>
+    <node id="319125587">
+      <data key="d4">4.5748201</data>
+      <data key="d5">-74.1355579</data>
+      <data key="d6">3</data>
+    </node>
+    <node id="319125556">
+      <data key="d4">4.575502</data>
+      <data key="d5">-74.133885</data>
+      <data key="d6">3</data>
+    </node>
+    <node id="5433828819">
+      <data key="d4">4.5703433</data>
+      <data key="d5">-74.1297812</data>
+      <data key="d6">3</data>
+    </node>
+    <edge source="318004322" target="5433829323" id="0">
+      <data key="d8">1061038777</data>
+      <data key="d9">residential</data>
+      <data key="d10">2</data>
+      <data key="d11">30</data>
+      <data key="d12">Calle 51 Sur</data>
+      <data key="d13">False</data>
+      <data key="d14">False</data>
+      <data key="d15">19.161805688379726</data>
+    </edge>
+    <edge source="6580176099" target="5433828819" id="0">
+      <data key="d8">1157221987</data>
+      <data key="d9">primary</data>
+      <data key="d10">2</data>
+      <data key="d12">Avenida Carrera 19C</data>
+      <data key="d13">True</data>
+      <data key="d14">False</data>
+      <data key="d15">20.05898131524814</data>
+    </edge>
+    <edge source="6580176099" target="5433829323" id="0">
+      <data key="d8">700694828</data>
+      <data key="d9">residential</data>
+      <data key="d10">2</data>
+      <data key="d11">30</data>
+      <data key="d12">Calle 51 Sur</data>
+      <data key="d13">True</data>
+      <data key="d14">False</data>
+      <data key="d15">41.84929642434332</data>
+      <data key="d16">LINESTRING (-74.1299482 4.5702738, -74.1299135 4.5702395, -74.1296801 4.5700088)</data>
+    </edge>
+    <edge source="6572803239" target="6572803241" id="0">
+      <data key="d8">1084732325</data>
+      <data key="d9">residential</data>
+      <data key="d10">2</data>
+      <data key="d12">Calle 52B Sur</data>
+      <data key="d13">False</data>
+      <data key="d14">True</data>
+      <data key="d15">12.278834708875483</data>
+    </edge>
+    <edge source="6572803239" target="319125556" id="0">
+      <data key="d8">1155100583</data>
+      <data key="d9">secondary</data>
+      <data key="d10">2</data>
+      <data key="d11">30</data>
+      <data key="d12">Avenida Carrera 24</data>
+      <data key="d13">True</data>
+      <data key="d14">False</data>
+      <data key="d15">199.75252608445487</data>
+      <data key="d16">LINESTRING (-74.1322176 4.5761836, -74.1322698 4.5761621, -74.1324679 4.5760813, -74.133885 4.575502)</data>
+    </edge>
+    <edge source="6572803241" target="6572803239" id="0">
+      <data key="d8">1084732325</data>
+      <data key="d9">residential</data>
+      <data key="d10">2</data>
+      <data key="d12">Calle 52B Sur</data>
+      <data key="d13">False</data>
+      <data key="d14">False</data>
+      <data key="d15">12.278834708875483</data>
+    </edge>
+    <edge source="317091755" target="6580176099" id="0">
+      <data key="d8">1157221987</data>
+      <data key="d9">primary</data>
+      <data key="d10">2</data>
+      <data key="d12">Avenida Carrera 19C</data>
+      <data key="d13">True</data>
+      <data key="d14">False</data>
+      <data key="d15">255.89277400428506</data>
+      <data key="d16">LINESTRING (-74.1320907 4.5694166, -74.1300266 4.5702428, -74.1299482 4.5702738)</data>
+    </edge>
+    <edge source="5433829323" target="318004322" id="0">
+      <data key="d8">1061038777</data>
+      <data key="d9">residential</data>
+      <data key="d10">2</data>
+      <data key="d11">30</data>
+      <data key="d12">Calle 51 Sur</data>
+      <data key="d13">False</data>
+      <data key="d14">True</data>
+      <data key="d15">19.161805688379726</data>
+    </edge>
+    <edge source="5433829323" target="5433828819" id="0">
+      <data key="d8">563911758</data>
+      <data key="d9">residential</data>
+      <data key="d12">Calle 51 Sur</data>
+      <data key="d13">True</data>
+      <data key="d14">False</data>
+      <data key="d15">38.846186237886236</data>
+      <data key="d16">LINESTRING (-74.1296801 4.5700088, -74.1297667 4.5702952, -74.1297812 4.5703433)</data>
+    </edge>
+    <edge source="319125556" target="319125587" id="0">
+      <data key="d8">89720462</data>
+      <data key="d9">secondary</data>
+      <data key="d10">2</data>
+      <data key="d11">30</data>
+      <data key="d12">Avenida Carrera 24</data>
+      <data key="d13">True</data>
+      <data key="d14">False</data>
+      <data key="d15">200.32945745705118</data>
+      <data key="d16">LINESTRING (-74.133885 4.575502, -74.1339195 4.5754879, -74.1355579 4.5748201)</data>
+    </edge>
+    <data key="d0">2026-11-10 04:48:31</data>
+    <data key="d1">OSMnx 2.1.1</data>
+    <data key="d2">epsg:4326</data>
+    <data key="d3">True</data>
+  </graph>
+</graphml>
