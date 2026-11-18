@@ -28,7 +28,6 @@ def generar_todo_el_cache():
 
         print(f"\n[{idx}/{len(localidades)}] Procesando localidad: {loc}")
 
-        # 1. Asegurar grafo maestro de 1000m
         try:
             G_1000 = descargar_sector_localidad(loc, radio_metros=1000)
             archivo_1000 = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_1000m.graphml")
@@ -39,7 +38,6 @@ def generar_todo_el_cache():
             print(f"  [ERROR] No se pudo obtener el grafo de 1000m para {loc}: {e}")
             continue
 
-        # 2. Generar y guardar cada distancia del slider (350m a 950m)
         for radio in RADIOS_DISPONIBLES:
             archivo_radio = os.path.join(CARPETA_CACHE, f"{nombre_limpio}_{radio}m.graphml")
             if radio == 1000 and os.path.exists(archivo_radio):
@@ -51,10 +49,9 @@ def generar_todo_el_cache():
             except Exception as e:
                 print(f"  [ERROR] Fallo en radio {radio}m para {loc}: {e}")
 
-        # 3. Generar ruta macro OSRM hacia Doña Juana
         try:
             ruta_nodos = nx.dijkstra_path(G_macro, source=loc, target="Relleno Doña Juana", weight="distancia_km")
-             _, dist_km, _ = obtener_ruta_vial_real_dona_juana(ruta_nodos, lat_c, lon_c)
+            _, dist_km, _ = obtener_ruta_vial_real_dona_juana(ruta_nodos, lat_c, lon_c)
             print(f"  -> Ruta Dona Juana guardada ({dist_km} km)")
         except Exception as e:
             print(f"  [ERROR] Fallo en ruta OSRM para {loc}: {e}")
